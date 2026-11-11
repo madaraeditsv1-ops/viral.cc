@@ -1,0 +1,360 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CREATOR
+  ADMIN
+}
+
+enum VideoStatus {
+  DRAFT
+  ANALYZING
+  READY
+  FAILED
+  SCHEDULED
+  PUBLISHED
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  FAILED
+}
+
+enum NotificationType {
+  REMINDER
+  ANALYSIS_COMPLETE
+  ANALYTICS_UPDATE
+  MILESTONE
+  PUBLISH_FAILED
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  PREMIUM
+}
+
+enum AuthTokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model User {
+  id                 String                 @id @default(cuid())
+  email              String                 @unique
+  emailVerifiedAt    DateTime?
+  passwordHash       String?
+  username           String?
+  image              String?
+  role               UserRole               @default(CREATOR)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  preferences        UserPreferences?
+  accounts           Account[]
+  sessions           Session[]
+  authTokens         AuthToken[]
+  connectedAccounts  ConnectedSocialAccount[]
+  videos             Video[]
+  exportPresets      ExportPreset[]
+  captions           Caption[]
+  hashtagCollections HashtagCollection[]
+  scheduledPosts     ScheduledPost[]
+  publishedPosts    PublishedPost[]
+  analytics          AnalyticsSnapshot[]
+  recommendations   PostingRecommendation[]
+  notifications      Notification[]
+  subscription       Subscription?
+
+  @@index([createdAt])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refreshToken      String? @db.Text
+  accessToken       String? @db.Text
+  expiresAt         Int?
+  tokenType         String?
+  scope             String?
+  idToken           String? @db.Text
+  sessionState      String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+model AuthToken {
+  id        String           @id @default(cuid())
+  userId    String
+  purpose   AuthTokenPurpose
+  tokenHash String           @unique
+  expiresAt DateTime
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, purpose])
+  @@index([expiresAt])
+}
+
+model UserPreferences {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  categories           String[] @default([])
+  editingStyles        String[] @default([])
+  timezone             String   @default("UTC")
+  audienceLocation     String?
+  postingFrequency     String?
+  editingSoftware      String?
+  preferredContentStyle String?
+  workspaceData        Json     @default("{}")
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt            DateTime @updatedAt
+}
+
+model ConnectedSocialAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  username          String?
+  accessToken       String?  @db.Text
+  refreshToken      String?  @db.Text
+  expiresAt         DateTime?
+  scopes            String[] @default([])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider, providerAccountId])
+  @@index([userId, provider])
+}
+
+model Video {
+  id              String         @id @default(cuid())
+  userId          String
+  name            String
+  storageKey      String?
+  mimeType        String
+  sizeBytes       BigInt
+  durationSeconds Float?
+  width           Int?
+  height          Int?
+  fps             Float?
+  videoCodec      String?
+  audioCodec      String?
+  bitrate         BigInt?
+  colorSpace      String?
+  pixelFormat     String?
+  status          VideoStatus    @default(DRAFT)
+  category        String?
+  folder          String?
+  tags            String[]       @default([])
+  caption         String?        @db.Text
+  notes           String?        @db.Text
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analyses        VideoAnalysis[]
+  qualityReports  QualityReport[]
+  scheduledPosts  ScheduledPost[]
+
+  @@index([userId, status, createdAt])
+  @@index([userId, folder])
+}
+
+model VideoAnalysis {
+  id               String   @id @default(cuid())
+  videoId          String
+  technicalReport  Json
+  subjectiveReport Json?
+  readinessScore   Int?
+  processorVersion String?
+  createdAt        DateTime @default(now())
+  video            Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId, createdAt])
+}
+
+model QualityReport {
+  id                String   @id @default(cuid())
+  videoId           String
+  profile            String?
+  measurements       Json
+  recommendations    Json
+  comparisonVideoKey String?
+  createdAt          DateTime @default(now())
+  video              Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId, createdAt])
+}
+
+model ExportPreset {
+  id                String   @id @default(cuid())
+  userId            String?
+  name              String
+  category          String
+  software          String?
+  settings          Json
+  isFavorite        Boolean  @default(false)
+  isSystem          Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, category])
+  @@index([isSystem, category])
+}
+
+model Caption {
+  id        String   @id @default(cuid())
+  userId    String
+  category  String?
+  style     String?
+  tone      String?
+  text      String   @db.Text
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model HashtagCollection {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  category  String?
+  hashtags  String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId, category])
+}
+
+model ScheduledPost {
+  id                String     @id @default(cuid())
+  userId            String
+  videoId           String?
+  title             String
+  caption           String?    @db.Text
+  scheduledAt       DateTime
+  timezone          String
+  status            PostStatus @default(DRAFT)
+  privacyLevel      String?
+  coverTimestampMs  Int?
+  reminderAt        DateTime?
+  failureMessage    String?    @db.Text
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video             Video?     @relation(fields: [videoId], references: [id], onDelete: SetNull)
+  publishedPost     PublishedPost?
+
+  @@index([userId, status, scheduledAt])
+}
+
+model PublishedPost {
+  id                 String   @id @default(cuid())
+  userId             String
+  scheduledPostId    String?  @unique
+  provider           String
+  providerPostId     String?
+  url                String?
+  publishedAt        DateTime
+  publishingStatus   String
+  errorMessage       String?  @db.Text
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduledPost      ScheduledPost? @relation(fields: [scheduledPostId], references: [id], onDelete: SetNull)
+
+  @@index([userId, publishedAt])
+}
+
+model AnalyticsSnapshot {
+  id                 String   @id @default(cuid())
+  userId             String
+  publishedPostId    String?
+  postDate           DateTime
+  postTime           String?
+  timezone           String?
+  views              BigInt   @default(0)
+  likes              BigInt   @default(0)
+  comments           BigInt   @default(0)
+  shares             BigInt   @default(0)
+  favorites          BigInt   @default(0)
+  followersGained    BigInt   @default(0)
+  averageWatchSeconds Float?
+  completionRate     Float?
+  source             String   @default("manual")
+  createdAt          DateTime @default(now())
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, postDate])
+  @@index([publishedPostId])
+}
+
+model PostingRecommendation {
+  id          String   @id @default(cuid())
+  userId      String
+  weekday     Int?
+  hour        Int?
+  sampleCount Int
+  confidence  String
+  basis       String
+  generatedAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, generatedAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String           @db.Text
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model Subscription {
+  id                   String           @id @default(cuid())
+  userId               String           @unique
+  tier                 SubscriptionTier @default(FREE)
+  stripeCustomerId     String?          @unique
+  stripeSubscriptionId String?          @unique
+  status               String           @default("free")
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tier, status])
+}

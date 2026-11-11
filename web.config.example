@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <system.webServer>
+    <handlers>
+      <add name="httpPlatformHandler" path="*" verb="*" modules="httpPlatformHandler" />
+    </handlers>
+    <httpPlatform processPath="node" arguments="server.js" startupTimeLimit="120" startupRetryCount="3" stdoutLogEnabled="false" stdoutLogFile=".\logs\stdout">
+      <environmentVariables>
+        <environmentVariable name="PORT" value="%HTTP_PLATFORM_PORT%" />
+        <environmentVariable name="NODE_ENV" value="production" />
+        <environmentVariable name="HOSTNAME" value="0.0.0.0" />
+        <environmentVariable name="APP_URL" value="https://viral.cc" />
+        <environmentVariable name="DATABASE_URL" value="REPLACE_WITH_PRODUCTION_POSTGRES_URL" />
+        <environmentVariable name="SMTP_HOST" value="REPLACE_WITH_SMTP_HOST" />
+        <environmentVariable name="SMTP_PORT" value="587" />
+        <environmentVariable name="SMTP_SECURE" value="false" />
+        <environmentVariable name="SMTP_USER" value="REPLACE_WITH_SMTP_USER" />
+        <environmentVariable name="SMTP_PASSWORD" value="REPLACE_WITH_SMTP_PASSWORD" />
+        <environmentVariable name="SMTP_FROM" value="VIRALFLOW &lt;no-reply@viral.cc&gt;" />
+      </environmentVariables>
+    </httpPlatform>
+  </system.webServer>
+</configuration>
